@@ -1,0 +1,26 @@
+# --- 3. INSPEÇÃO VISUAL INDIVIDUAL ---
+# Mude a letra abaixo para inspecionar 'B', 'V' ou 'R'
+banda_inspecao = 'B'
+
+arquivos_para_analisar = dicionario_objeto[banda_inspecao]
+master_flat_atual = master_flats[banda_inspecao]
+
+print(f"Iniciando inspeção de {len(arquivos_para_analisar)} imagens da banda {banda_inspecao}...\n")
+
+for i, arquivo in enumerate(arquivos_para_analisar):
+    imagem_reduzida = reduz_imagem(arquivo, master_bias, master_flat_atual)
+    nome_base = os.path.basename(arquivo)
+
+    # ZScale calcula o contraste perfeito para ver detalhes e defeitos
+    norm = ImageNormalize(imagem_reduzida, interval=ZScaleInterval())
+
+    plt.figure(figsize=(10, 8))
+    # cmap='gray' mostra fundo escuro e estrelas claras. Use 'gray_r' se preferir o inverso.
+    plt.imshow(imagem_reduzida, origin='lower', cmap='gray', norm=norm)
+    plt.title(f"Imagem {i+1} de {len(arquivos_para_analisar)} | Banda: {banda_inspecao}\nArquivo: {nome_base}")
+    plt.colorbar(label='Intensidade do Pixel')
+    plt.axis('off')
+    plt.show()
+
+# IMPORTANTE: Se achar uma imagem ruim, vá ao seu Google Drive, apague-a ou mova para outra pasta.
+# Depois de limpar as imagens ruins, RODE A CÉLULA 1 NOVAMENTE para atualizar a lista de arquivos do objeto!
