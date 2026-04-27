@@ -1,0 +1,59 @@
+# Instala o astroalign caso o Colab não tenha
+!pip install astroalign
+
+import os
+import glob
+import numpy as np
+import matplotlib.pyplot as plt
+from astropy.io import fits
+from astropy.visualization import make_lupton_rgb, ZScaleInterval, ImageNormalize
+import astroalign as aa
+
+# --- 1. CONFIGURAÇÃO DE CAMINHOS ---
+# Substitua onde está escrito "Sua_Pasta" pelo nome da pasta principal no Google Drive.
+caminho_base = '/content/drive/MyDrive/Sua_Pasta/'
+# Recomendo criar pastas dentro do caminho base com os nomes dos arquivos bias e flat e do nome do objeto escolhido. Necessário mudar em todo o código o nome do objeto (ctrl+a, ctrl+h, altere o nome e substitua todos).
+caminho_bias = os.path.join(caminho_base, 'bias')
+caminho_flat = os.path.join(caminho_base, 'flat')
+caminho_objeto = os.path.join(caminho_base, 'objeto')
+
+def listar_arquivos_por_filtro(caminho_pasta, extensao='*.fits'):
+    arquivos = glob.glob(os.path.join(caminho_pasta, extensao))
+    arquivos_por_filtro = {'B': [], 'V': [], 'R': [], 'I': []}
+    for arquivo in arquivos:
+        nome_arquivo = os.path.basename(arquivo).upper()
+        if '_B_' in nome_arquivo or nome_arquivo.endswith('B.FITS'): arquivos_por_filtro['B'].append(arquivo)
+        elif '_V_' in nome_arquivo or nome_arquivo.endswith('V.FITS'): arquivos_por_filtro['V'].append(arquivo)
+        elif '_R_' in nome_arquivo or nome_arquivo.endswith('R.FITS'): arquivos_por_filtro['R'].append(arquivo)
+        elif '_I_' in nome_arquivo or nome_arquivo.endswith('I.FITS'): arquivos_por_filtro['I'].append(arquivo)
+    return arquivos_por_filtro
+
+print("Mapeando arquivos...")
+lista_bias = glob.glob(os.path.join(caminho_bias, '*.fits'))
+dicionario_flats = listar_arquivos_por_filtro(caminho_flat)
+dicionario_objeto = listar_arquivos_por_filtro(caminho_objeto)
+
+# --- 2. CRIAÇÃO DOS MASTERS (BIAS E FLAT) ---
+print("Criando Master Bias...")
+bias_data = [fits.getdata(arq) for arq in lista_bias]
+master_bias = np.median(bias_data, axis=0)
+
+def cria_master_flat(lista_arquivos_flat, master_bias):
+    if not lista_arquivos_flat: return None
+    flat_data = [fits.getdata(arq) - master_bias for arq in lista_arquivos_flat]
+    master_flat = np.median(flat_data, axis=0)
+    return master_flat / np.median(master_flat)
+
+print("Criando Master Flats para B, V e R...")
+master_flats = {
+    'B': cria_master_flat(dicionario_flats['B'], master_bias),
+    'V': cria_master_flat(dicionario_flats['V'], master_bias),
+    'R': cria_master_flat(dicionario_flats['R'], master_bias)
+}
+
+# Função de redução que será usada nas próximas células
+def reduz_imagem(arquivo_obj, master_bias, master_flat):
+    dados = fits.getdata(arquivo_obj)
+    return (dados - master_bias) / master_flat
+
+print("Etapa 1 concluída com sucesso! Calibrações prontas na memória.")
