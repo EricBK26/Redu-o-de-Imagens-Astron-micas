@@ -1,0 +1,60 @@
+# --- 4. REDUÇÃO, ALINHAMENTO E EMPILHAMENTO ---
+print("Reduzindo, alinhando e empilhando as imagens do objeto...")
+
+# Definindo uma única imagem de referência (ex: a primeira foto V)
+ref_image_path = dicionario_objeto['V'][0]
+ref_data = reduz_imagem(ref_image_path, master_bias, master_flats['V'])
+
+def processa_banda(lista_arquivos, master_flat, master_bias, ref_data):
+    if not lista_arquivos: return None
+    imagens_alinhadas = []
+    for arquivo in lista_arquivos:
+        dados_reduzidos = reduz_imagem(arquivo, master_bias, master_flat)
+        try:
+            alinhada, _ = aa.register(dados_reduzidos, ref_data)
+            imagens_alinhadas.append(alinhada)
+        except Exception as e:
+            print(f"Aviso: Não foi possível alinhar {os.path.basename(arquivo)}: {e}. Usando sem alinhamento.")
+            imagens_alinhadas.append(dados_reduzidos)
+    return np.median(imagens_alinhadas, axis=0)
+
+M104_R_empilhada = processa_banda(dicionario_objeto['R'], master_flats['R'], master_bias, ref_data)
+M104_V_empilhada = processa_banda(dicionario_objeto['V'], master_flats['V'], master_bias, ref_data)
+M104_B_empilhada = processa_banda(dicionario_objeto['B'], master_flats['B'], master_bias, ref_data)
+
+# --- 5. CORREÇÃO DO FUNDO E GERAÇÃO DA IMAGEM RGB ---
+print("Ajustando o fundo do céu e gerando a imagem RGB final...")
+
+R_corrigido = np.clip(objeto_R_empilhada - np.median(objeto_R_empilhada), 0, None)
+V_corrigido = np.clip(objeto_V_empilhada - np.median(objeto_V_empilhada), 0, None)
+B_corrigido = np.clip(objeto_B_empilhada - np.median(objeto_B_empilhada), 0, None)
+
+imagem_rgb = make_lupton_rgb(R_corrigido, V_corrigido, B_corrigido, stretch=5, Q=8)
+
+# --- 6. PLOTAGEM COM LEGENDA (BALÃO TRANSLÚCIDO) ---
+fig, ax = plt.subplots(figsize=(12, 10))
+ax.imshow(imagem_rgb, origin='lower')
+
+# -- CONFIGURAÇÃO DA LEGENDA --
+# Altere o texto abaixo:
+texto_legenda = "Processado em Python\nAutor: ___\nObservatório: ___"
+
+# Posição: 0.95 (95% da largura), 0.05 (5% da altura) coloca no canto inferior direito
+# alpha=0.4 define a transparência do fundo
+ax.text(0.95, 0.05, texto_legenda,
+        transform=ax.transAxes,
+        fontsize=11,
+        color='white',
+        verticalalignment='bottom',
+        horizontalalignment='right',
+        bbox=dict(boxstyle='round,pad=0.5',
+                  facecolor='black',
+                  alpha=0.1,
+                  edgecolor='none'))
+
+plt.title('Código do Objeto (Nome do Objeto)')
+plt.axis('off')
+plt.show()
+
+# Salvar a imagem com a legenda:
+plt.savefig('/content/drive/MyDrive/Sua_Pasta/objeto_reduzido.png', bbox_inches='tight', dpi=300)
